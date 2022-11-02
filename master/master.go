@@ -23,6 +23,7 @@ import (
 // master的数据结构
 type Master struct {
 	chunkServers map[uint64]*chunkserver.ChunkServer //保存所有chunkserver信息
+	metaDatas map[]
 }
 
 // 初始化master

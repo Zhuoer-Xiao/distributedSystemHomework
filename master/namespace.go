@@ -58,3 +58,22 @@ func (ns *NameSpace) findFile(path string) (*common.File, error) {
 
 	return msg, nil
 }
+
+func (ns *NameSpace) createFile(path string, flag int, perm uint32) (*common.File, error) {
+	lastSlash := strings.LastIndex(path, "/")
+	if lastSlash != -1 {
+		slice := strings.Split(path, "/")
+		d := ns.rootdir.recursiveFindDirectory(string(path[0:lastSlash]))
+		if d == nil {
+			return nil, errors.New("No Such File of Directory")
+		}
+		filename := slice[len(slice)-1]
+		file := common.NewFile(filename)
+		d.files[filename] = file
+		return file, nil
+	} else {
+		file := common.NewFile(path)
+		ns.rootdir.files[path] = file
+		return file, nil
+	}
+}

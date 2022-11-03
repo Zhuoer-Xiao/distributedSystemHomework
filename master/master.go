@@ -6,6 +6,8 @@ import (
 	// "log"
 	// "net/rpc"
 	"distributedSystemHomework/chunkserver"
+	"distributedSystemHomework/common"
+	"fmt"
 )
 
 //命名空间
@@ -22,16 +24,28 @@ import (
 
 // master的数据结构
 type Master struct {
-	chunkServers map[uint64]*chunkserver.ChunkServer //保存所有chunkserver信息
-	metaDatas map[]
+	chunkServers map[string]*chunkserver.ChunkServer //保存所有chunkserver信息，通过ip来标志chunkserver
+	nameSpace    *NameSpace                          //命名空间
 }
 
 // 初始化master
 func NewMaster() *Master {
 	m := new(Master)
+	m.chunkServers = make(map[string]*chunkserver.ChunkServer)
+	m.nameSpace = NewNameSpace()
 	return m
 }
 
-func FindFileChunk(fileName string, fileIndex uint16) uint64 {
-	return 0
+func (m *Master) OpenFile(args *common.OpenArgs, reply *common.OpenReply) error {
+	if common.CheckCreate(args.Perm) {
+		file, err := m.nameSpace.createFile(args.FileName, args.Index, args.Perm)
+		if err != nil {
+			fmt.Println("Open File: ", args.FileName, " fail.")
+			return err
+		}
+	}
+	return nil
 }
+
+//定期写入内存
+//为chunkserver分配ip

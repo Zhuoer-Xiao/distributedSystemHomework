@@ -58,7 +58,7 @@ func (ns *NameSpace) findFile(path string) (*common.File, error) {
 
 	return msg, nil
 }
-
+//输入文件名，如果没有该文件则创建，如果有则返回该文件信息
 func (ns *NameSpace) createFile(path string, flag int, perm uint32) (*common.File, error) {
 	lastSlash := strings.LastIndex(path, "/")
 	if lastSlash != -1 {

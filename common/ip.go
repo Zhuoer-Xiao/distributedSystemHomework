@@ -6,6 +6,12 @@ import (
 	"strings"
 )
 
+//分配端口
+const(
+	HeartBeatPort =iota+626
+)
+
+//获取本机IP
 func LocalIp()net.IP{
 	conn,err:=net.Dial("udp","www.baidu.com:80")
 	if(err!=nil){

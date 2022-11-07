@@ -20,7 +20,7 @@ type OpenArgs struct {
 }
 
 type OpenReply struct {
-	chunkName uint64
+	ChunkName uint64
 }
 
 // 关闭文件

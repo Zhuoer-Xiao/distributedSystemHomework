@@ -28,6 +28,7 @@ func NewNameSpace() *NameSpace {
 }
 
 // 递归查找路径
+//待测试
 func (d *Directory) recursiveFindDirectory(subpath string) *Directory {
 	slice := strings.SplitN(subpath, "/", 2) //按/拆分成两个子字符串
 	subdir := d.subDir[slice[0]]
@@ -38,6 +39,7 @@ func (d *Directory) recursiveFindDirectory(subpath string) *Directory {
 }
 
 // 在命名空间查找文件
+//待测试
 func (ns *NameSpace) findFile(path string) (*common.File, error) {
 	lastSlash := strings.LastIndex(path, "/")
 	filename := path
@@ -59,6 +61,7 @@ func (ns *NameSpace) findFile(path string) (*common.File, error) {
 	return msg, nil
 }
 //输入文件名，如果没有该文件则创建，如果有则返回该文件信息
+//待测试
 func (ns *NameSpace) createFile(path string, flag int, perm uint32) (*common.File, error) {
 	lastSlash := strings.LastIndex(path, "/")
 	if lastSlash != -1 {

@@ -3,11 +3,15 @@ package master
 import (
 	// "errors"
 	// "fmt"
-	// "log"
-	// "net/rpc"
+	"log"
+	"net/rpc"
 	"distributedSystemHomework/chunkserver"
 	"distributedSystemHomework/common"
+	"encoding/json"
 	"fmt"
+	"os"
+	"time"
+	"net"
 )
 
 //命名空间
@@ -23,12 +27,15 @@ import (
 //
 
 // master的数据结构
+// 待测试
 type Master struct {
 	chunkServers map[string]*chunkserver.ChunkServer //保存所有chunkserver信息，通过ip来标志chunkserver
 	nameSpace    *NameSpace                          //命名空间
+	openFiles []*common.File//已打开文件
 }
 
 // 初始化master
+// 待测试
 func NewMaster() *Master {
 	m := new(Master)
 	m.chunkServers = make(map[string]*chunkserver.ChunkServer)
@@ -36,6 +43,8 @@ func NewMaster() *Master {
 	return m
 }
 
+// 找到client需要的文件chunk位置
+// 待测试
 func (m *Master) OpenFile(args *common.OpenArgs, reply *common.OpenReply) error {
 	if common.CheckCreate(args.Perm) {
 		file, err := m.nameSpace.createFile(args.FileName, args.Index, args.Perm)
@@ -43,9 +52,58 @@ func (m *Master) OpenFile(args *common.OpenArgs, reply *common.OpenReply) error 
 			fmt.Println("Open File: ", args.FileName, " fail.")
 			return err
 		}
+		reply.ChunkName = file.Chunks[args.Index]
+	}
+
+	return nil
+}
+
+// 定期写入内存,转换为json写入
+// 写入读出结构体
+// 待测试
+func (m *Master) WriteFileInfo() error {
+	file1, _ := os.OpenFile("./file1.json", os.O_CREATE|os.O_TRUNC|os.O_RDWR, 0777)
+	file2, _ := os.OpenFile("./file2.json", os.O_CREATE|os.O_TRUNC|os.O_RDWR, 0777)
+	outPut1, _ := json.Marshal(&m.chunkServers)
+	outPut2, _ := json.Marshal(&m.nameSpace)
+	file1.Write(outPut1)
+	file2.Write(outPut2)
+	file1.Close()
+	file2.Close()
+	return nil
+}
+
+// 开启master处理
+// 每隔十分钟将master数据写入内存
+func (m *Master) Main() error {
+	m.openHeartbeatServer()
+	for i := 1; i <= 10; i++ {
+		m.WriteFileInfo()
+		time.Sleep(time.Minute*10)
 	}
 	return nil
 }
 
-//定期写入内存
-//为chunkserver分配ip
+//选择Chunkserver返回
+//待完成
+func(m* Master)PickChunkServer(chunk uint64) *chunkserver.ChunkServer{
+	for _, cs := range m.chunkServers {
+			return cs
+	}
+
+	return nil
+}
+
+//监听rpc信息
+//待测试
+func (m *Master) openHeartbeatServer() {
+	r := rpc.NewServer()
+	r.Register(m)
+
+	addr := fmt.Sprintf(":%v", common.HeartBeatPort)
+	l, e := net.Listen("tcp", addr)
+	if e != nil {
+		log.Fatal("listen error: ", e)
+	}
+	go r.Accept(l)
+}

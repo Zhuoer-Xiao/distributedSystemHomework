@@ -3,18 +3,19 @@ package master
 import (
 	"distributedSystemHomework/common"
 	"errors"
+	//"fmt"
 	"strings"
 )
 
 // 目录
 type Directory struct {
-	subDir map[string]*Directory   //该路径下的子路径
-	files  map[string]*common.File //该路径下的子文件
+	SubDir map[string]*Directory   //该路径下的子路径
+	Files  map[string]*common.File //该路径下的子文件
 }
 
 // 命名空间
 type NameSpace struct {
-	rootdir *Directory
+	Rootdir *Directory
 }
 
 // 新建Directory
@@ -28,32 +29,41 @@ func NewNameSpace() *NameSpace {
 }
 
 // 递归查找路径
-//待测试
-func (d *Directory) recursiveFindDirectory(subpath string) *Directory {
+// 已测试
+// 输入格式为“example/”，
+func (d *Directory) RecursiveFindDirectory(subpath string) *Directory {
+	
 	slice := strings.SplitN(subpath, "/", 2) //按/拆分成两个子字符串
-	subdir := d.subDir[slice[0]]
+	if(len(slice)==1){
+		return d
+	}
+	//fmt.Println(slice[0])
+	subdir := d.SubDir[slice[0]]
 	if subdir != nil {
-		return subdir.recursiveFindDirectory(slice[1])
+		return subdir.RecursiveFindDirectory(slice[1])
 	}
 	return nil
+
+
 }
 
 // 在命名空间查找文件
-//待测试
-func (ns *NameSpace) findFile(path string) (*common.File, error) {
+// 已测试
+func (ns *NameSpace) FindFile(path string) (*common.File, error) {
 	lastSlash := strings.LastIndex(path, "/")
-	filename := path
-	d := ns.rootdir
+	filename := path[lastSlash+1:]
+	d := ns.Rootdir
 	if lastSlash != -1 {
 		//slice := strings.Split(path, "/")
-		d = ns.rootdir.recursiveFindDirectory(string(path[0:lastSlash]))
+		directoryPath:=string(path[0:lastSlash+1])
+		d = ns.Rootdir.RecursiveFindDirectory(directoryPath)
 		filename = string(path[lastSlash+1:])
 		if d == nil {
 			return nil, errors.New("No Such File or Directory")
 		}
 	}
 
-	msg := d.files[filename]
+	msg := d.Files[filename]
 	if msg == nil {
 		return nil, errors.New("No Such File")
 	}
@@ -61,22 +71,22 @@ func (ns *NameSpace) findFile(path string) (*common.File, error) {
 	return msg, nil
 }
 //输入文件名，如果没有该文件则创建，如果有则返回该文件信息
-//待测试
-func (ns *NameSpace) createFile(path string, flag int, perm uint32) (*common.File, error) {
+//已测试
+func (ns *NameSpace) CreateFile(path string) (*common.File, error) {
 	lastSlash := strings.LastIndex(path, "/")
 	if lastSlash != -1 {
 		slice := strings.Split(path, "/")
-		d := ns.rootdir.recursiveFindDirectory(string(path[0:lastSlash]))
+		d := ns.Rootdir.RecursiveFindDirectory(string(path[0:lastSlash+1]))
 		if d == nil {
 			return nil, errors.New("No Such File of Directory")
 		}
 		filename := slice[len(slice)-1]
 		file := common.NewFile(filename)
-		d.files[filename] = file
+		d.Files[filename] = file
 		return file, nil
 	} else {
 		file := common.NewFile(path)
-		ns.rootdir.files[path] = file
+		ns.Rootdir.Files[path] = file
 		return file, nil
 	}
 }

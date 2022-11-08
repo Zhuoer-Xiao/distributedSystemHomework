@@ -47,7 +47,7 @@ func NewMaster() *Master {
 // 待测试
 func (m *Master) OpenFile(args *common.OpenArgs, reply *common.OpenReply) error {
 	if common.CheckCreate(args.Perm) {
-		file, err := m.nameSpace.createFile(args.FileName, args.Index, args.Perm)
+		file, err := m.nameSpace.CreateFile(args.FileName)
 		if err != nil {
 			fmt.Println("Open File: ", args.FileName, " fail.")
 			return err

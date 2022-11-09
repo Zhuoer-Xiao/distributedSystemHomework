@@ -15,12 +15,32 @@ type Error struct {
 
 type MutationType int
 
+type CreateFileArg struct {
+	Path Path
+}
+
+type CreateFileReply struct{}
+
+type DeleteFileArg struct {
+	Path Path
+}
+
+type DeleteFileReply struct{}
+
+type IsExistArg struct {
+	Path Path
+}
+
+type IsExistReply struct {
+	Length int64
+	Chunks int64
+}
+
 type GetFileInfoArg struct {
 	Path Path
 }
 
 type GetFileInfoReply struct {
-	IsDir  bool
 	Length int64
 	Chunks int64 // 该文件含有几个chunk
 }
@@ -54,9 +74,23 @@ type ReadChunkReply struct {
 	ErrorCode ErrorCode
 }
 
-type WriteArgs struct {
-	Fd  int32
-	Off int64
+type WriteChunkArg struct {
+	Handle ChunkHandle
+	Offset Offset
+	Data   []byte
+}
+
+type WriteChunkReply struct {
+	Length    int
+	ErrorCode ErrorCode
+}
+
+type CreateChunkArg struct {
+	Handle ChunkHandle
+}
+
+type CreateChunkReply struct {
+	ErrorCode ErrorCode
 }
 
 const (

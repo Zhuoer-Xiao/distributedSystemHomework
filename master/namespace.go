@@ -3,6 +3,7 @@ package master
 import (
 	"distributedSystemHomework/common"
 	"errors"
+
 	//"fmt"
 	"strings"
 )
@@ -32,9 +33,9 @@ func NewNameSpace() *NameSpace {
 // 已测试
 // 输入格式为“example/”，
 func (d *Directory) RecursiveFindDirectory(subpath string) *Directory {
-	
+
 	slice := strings.SplitN(subpath, "/", 2) //按/拆分成两个子字符串
-	if(len(slice)==1){
+	if len(slice) == 1 {
 		return d
 	}
 	//fmt.Println(slice[0])
@@ -43,7 +44,6 @@ func (d *Directory) RecursiveFindDirectory(subpath string) *Directory {
 		return subdir.RecursiveFindDirectory(slice[1])
 	}
 	return nil
-
 
 }
 
@@ -55,7 +55,7 @@ func (ns *NameSpace) FindFile(path string) (*common.File, error) {
 	d := ns.Rootdir
 	if lastSlash != -1 {
 		//slice := strings.Split(path, "/")
-		directoryPath:=string(path[0:lastSlash+1])
+		directoryPath := string(path[0 : lastSlash+1])
 		d = ns.Rootdir.RecursiveFindDirectory(directoryPath)
 		filename = string(path[lastSlash+1:])
 		if d == nil {
@@ -70,13 +70,14 @@ func (ns *NameSpace) FindFile(path string) (*common.File, error) {
 
 	return msg, nil
 }
-//输入文件名，如果没有该文件则创建，如果有则返回该文件信息
-//已测试
+
+// 输入文件名，如果没有该文件则创建，如果有则返回该文件信息
+// 已测试
 func (ns *NameSpace) CreateFile(path string) (*common.File, error) {
 	lastSlash := strings.LastIndex(path, "/")
 	if lastSlash != -1 {
 		slice := strings.Split(path, "/")
-		d := ns.Rootdir.RecursiveFindDirectory(string(path[0:lastSlash+1]))
+		d := ns.Rootdir.RecursiveFindDirectory(string(path[0 : lastSlash+1]))
 		if d == nil {
 			return nil, errors.New("No Such File of Directory")
 		}
@@ -88,5 +89,61 @@ func (ns *NameSpace) CreateFile(path string) (*common.File, error) {
 		file := common.NewFile(path)
 		ns.Rootdir.Files[path] = file
 		return file, nil
+	}
+}
+
+// 创建目录
+// 已测试
+// 输入上级目录和新目录名,如果上级目录为空，不输入"/",否则以"/"结尾
+func (ns *NameSpace) CreateDirectory(path string, name string) error {
+	newDir := NewDirectory()
+	d := ns.Rootdir.RecursiveFindDirectory(path)
+	d.SubDir[name] = newDir
+	return nil
+}
+
+// 删除目录
+// 已测试
+func (ns *NameSpace) DeleteDirectory(path string, name string) error {
+	d := ns.Rootdir.RecursiveFindDirectory(path)
+	d.SubDir[name] = nil
+	return nil
+}
+
+// 删除文件
+// 已测试
+func (ns *NameSpace) DeleteFile(path string) error {
+	lastSlash := strings.LastIndex(path, "/")
+	if lastSlash != -1 {
+		slice := strings.Split(path, "/")
+		d := ns.Rootdir.RecursiveFindDirectory(string(path[0 : lastSlash+1]))
+		if d == nil {
+			return errors.New("No Such File of Directory")
+		}
+		filename := slice[len(slice)-1]
+		d.Files[filename] = nil
+		return nil
+	} else {
+		ns.Rootdir.Files[path] = nil
+		return nil
+	}
+}
+
+// 更新文件，
+// 已测试
+func (ns *NameSpace) UpdateFile(path string, file *common.File) error {
+	lastSlash := strings.LastIndex(path, "/")
+	if lastSlash != -1 {
+		slice := strings.Split(path, "/")
+		d := ns.Rootdir.RecursiveFindDirectory(string(path[0 : lastSlash+1]))
+		if d == nil {
+			return errors.New("No Such File of Directory")
+		}
+		filename := slice[len(slice)-1]
+		d.Files[filename] = file
+		return nil
+	} else {
+		ns.Rootdir.Files[path] = file
+		return nil
 	}
 }

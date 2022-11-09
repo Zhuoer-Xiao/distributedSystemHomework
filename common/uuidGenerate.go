@@ -2,8 +2,12 @@ package common
 //生成唯一标识符
 //待测试
 
+import(
+	"sync"
+)
 type UuidGenerate struct{
 	UuidNow uint64
+	mu sync.Mutex
 }
 
 func(u *UuidGenerate)NewUuidGnerate(){

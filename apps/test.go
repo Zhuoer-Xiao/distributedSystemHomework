@@ -3,12 +3,14 @@ package main
 import (
 	"distributedSystemHomework/common"
 	"distributedSystemHomework/master"
+	"encoding/json"
 	"fmt"
+	"os"
 	"strings"
 	// "distributedSystemHomework/chunkserver"
 )
 
-func main() {
+func main2() {
 	myDir1 := master.NewDirectory()
 	myDir2 := master.NewDirectory()
 	myDir3 := master.NewDirectory()
@@ -29,7 +31,18 @@ func main() {
 	fmt.Println(string(path[lastSlash+1:]))
 	fmt.Println("---------------------------")
 
-	res,_:= myName.CreateFile("node1/node3/file.txt")
+	res, _ := myName.CreateFile("node1/node3/file.txt")
+
+	file1, _ := os.OpenFile("./file1.json", os.O_CREATE|os.O_TRUNC|os.O_RDWR, 0777)
+	outPut1, _ := json.Marshal(myName)
+	file1.Write(outPut1)
+	file1.Close()
+
 
 	fmt.Println(res.FileName)
+}
+
+func main(){
+	master.TestMaster()
+	fmt.Println("-------------------------")
 }

@@ -2,6 +2,7 @@ package common
 
 import (
 	"net"
+	"distributedSystemHomework/chunkserver"
 )
 
 // 此处定义各种rpc消息体
@@ -20,8 +21,18 @@ type OpenArgs struct {
 }
 
 type OpenReply struct {
-	ChunkName uint64
+	ChunkName uint64//块id
+	ChunkServerName chunkserver.ChunkServer//块所在chunkserver信息
 }
+//更新元数据
+type UpdateArgs struct {
+	Files []*File
+}
+
+type UpdateReply struct {
+	
+}
+
 
 // 关闭文件
 type CloseArgs struct {

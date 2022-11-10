@@ -6,15 +6,6 @@ type ServerAddress string
 type ChunkIndex int
 type ChunkHandle uint64
 
-type ErrorCode int
-
-type Error struct {
-	Code ErrorCode
-	Err  string
-}
-
-type MutationType int
-
 type CreateFileArg struct {
 	Path Path
 }
@@ -103,16 +94,3 @@ type CreateChunkArg struct {
 type CreateChunkReply struct {
 	ErrorCode ErrorCode
 }
-
-const (
-	MaxChunkSize = 64 << 10
-)
-
-// Error
-const (
-	Success = iota
-	UnknownError
-	Timeout
-	AppendExceedChunkSize
-)
-

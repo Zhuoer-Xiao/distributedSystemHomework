@@ -1,150 +1,336 @@
 package client
 
-// import (
-// 	"fmt"
-// 	"math/rand"
+import (
+	"fmt"
+	"log"
+	"math/rand"
+	"time"
 
-// 	log "github.com/Sirupsen/logrus"
+	"GFS_Homework/common"
+)
 
-// 	"GFS_Homework/common"
-// )
+type Client struct {
+	master common.ServerAddress
+}
 
-// const (
-// 	READ   = 0x1
-// 	WRITE  = 0x2
-// 	RDWR   = 0x3
-// 	APPEND = 0x4
-// 	CREATE = 0x8
-// )
+// 返回一个gfs client
+func NewClient(master common.ServerAddress) *Client {
+	return &Client{
+		master: master,
+	}
+}
 
-// type FileMode uint32
+// 文件创建
+func (c *Client) Create(path common.Path) error {
+	var reply common.CreateFileReply
+	// master RPC 创建文件，给master一个路径，返回error
+	err := common.Call(string(c.master), "Master.RPCCreateFile", common.CreateFileArg{path}, &reply)
+	if err != nil {
+		return err
+	}
+	return nil
+}
 
-// // 定义文件结构体
-// type File struct {
-// 	fd int32 // filedata
-// }
+// 文件删除
+func (c *Client) Delete(path common.Path) error {
+	var reply common.DeleteFileReply
+	// master RPC 删除文件，给master一个路径，返回error
+	err := common.Call(string(c.master), "Master.RPCDeleteFile", common.DeleteFileArg{path}, &reply)
+	if err != nil {
+		return err
+	}
+	return nil
+}
 
-// type Client struct {
-// 	master common.ServerAddress
-// }
+// 判断文件是否存在
+func (c *Client) IsExist(path common.Path) (ex bool, err error) {
+	var reply common.IsExistReply
 
-// // 文件打开
-// func OpenFile(filename string, flag int, perm FileMode) error {
+	err = common.Call(string(c.master), "Master.FindFileRpc", common.IsExistArg{path}, &reply)
+	if err != nil {
+		return false, fmt.Errorf("File not exist")
+	}
 
-// }
+	return true, nil
+}
 
-// // 文件读操作
-// func (c *Client) Read(path common.Path, offset common.Offset, data []byte) (n int, err error) { // 内存分配data长度的空间
-// 	var file common.GetFileInfoReply
-// 	// master rpc
-// 	errx := common.Call(string(c.master), "Master.RPCGetFileInfo", common.GetFileInfoArg{path}, &file)
-// 	if errx != nil {
-// 		return -1, errx
-// 	}
+// 文件读操作
+func (c *Client) Read(path common.Path, offset common.Offset, data []byte) (n int, err error) { // 内存分配data长度的空间
+	var file common.GetFileInfoReply
+	// master rpc
+	err = common.Call(string(c.master), "Master.FindFileRpc", common.GetFileInfoArg{path}, &file)
+	if err != nil {
+		return -1, err
+	}
 
-// 	// 判断读偏移量是否合法
-// 	if int64(offset/common.MaxChunkSize) > file.Chunks {
-// 		return -1, fmt.Errorf("Read offset exceeds the max file size")
-// 	}
+	// 判断读偏移量是否合法
+	if int64(offset/common.MaxChunkSize) > file.Chunks {
+		return -1, fmt.Errorf("Read offset exceeds the max file size")
+	}
 
-// 	pos := 0
-// 	for pos < len(data) { // 若跨块，则接着读
-// 		index := common.ChunkIndex(offset / common.MaxChunkSize)
-// 		chunk_offset := offset % common.MaxChunkSize
+	pos := 0
+	for pos < len(data) { // 若跨块，则接着读
+		index := common.ChunkIndex(offset / common.MaxChunkSize)
+		chunk_offset := offset % common.MaxChunkSize
 
-// 		var handle common.ChunkHandle
-// 		handle, err = c.GetChunkHandle(path, index)
-// 		if err != nil {
-// 			return
-// 		}
+		var handle common.ChunkHandle
+		handle, err = c.GetChunkHandle(path, index)
+		if err != nil {
+			return
+		}
 
-// 		var n int
-// 		for {
-// 			n, err = c.ReadChunk(handle, chunk_offset, data[pos:])
-// 			if err == nil {
-// 				break
-// 			}
-// 			log.Warning("Read ", handle, " connection error, please try again: ", err)
-// 		}
+		var n int
+		for {
+			n, err = c.ReadChunk(handle, chunk_offset, data[pos:])
+			if err == nil {
+				break
+			}
+			fmt.Errorf("Read ", handle, " connection error, please try again: ", err)
+		}
 
-// 		offset += common.Offset(n)
-// 		pos += n // 若跨块，则接着读
-// 		if err != nil {
-// 			break
-// 		}
-// 	}
+		offset += common.Offset(n)
+		pos += n // 若跨块，则接着读
+		if err != nil {
+			break
+		}
+	}
 
-// }
+	if err != nil {
+		return pos, nil
+	} else {
+		return pos, err
+	}
+}
 
-// // 文件写操作
-// func (f *File) Write(content []byte) (int, error) {
+// 文件写操作
+func (c *Client) Write(path common.Path, offset common.Offset, data []byte) error {
+	var file common.GetFileInfoReply
+	err := common.Call(string(c.master), "Master.FindFileRpc", common.GetFileInfoArg{path}, &file)
+	if err != nil {
+		return err
+	}
 
-// }
+	if int64(offset/common.MaxChunkSize) > file.Chunks {
+		return fmt.Errorf("Write offset exceeds the max file size")
+	}
 
-// // 文件追加写操作
-// func (f *File) Append() {
+	begin := 0
+	for {
+		index := common.ChunkIndex(offset / common.MaxChunkSize)
+		chunk_offset := offset % common.MaxChunkSize
 
-// }
+		handle, err := c.GetChunkHandle(path, index)
+		if err != nil {
+			return err
+		}
 
-// // 查询文件是否存在
-// func (f *File) IsExist(filename string) (bool, error) {
+		writeMax := int(common.MaxChunkSize - chunk_offset)
+		var writeLen int
+		if begin+writeMax > len(data) { // 剩余空间够写入
+			writeLen = len(data) - begin
+		} else { // 否则只能写到chunk结尾
+			writeLen = writeMax
+		}
 
-// }
+		for {
+			err = c.WriteChunk(handle, chunk_offset, data[begin:begin+writeLen])
+			if err == nil {
+				break
+			}
+			fmt.Errorf("Write ", handle, " connection error, please try again: ", err)
+		}
+		if err != nil {
+			return err
+		}
 
-// // 文件删除操作
-// func (f *File) Delete() {
-// }
+		offset += common.Offset(writeLen) // 在总偏移量上记录已写的数据长度
+		begin += writeLen
 
-// // 文件关闭
-// func (f *File) Close() error {
-// 	return nil
-// }
+		if begin == len(data) {
+			break
+		}
+	}
 
-// ////////////////////////////////////
-// //具体功能实现
-// ////////////////////////////////////
+	return nil
+}
 
-// // 寻找chunkhandle
-// func (c *Client) GetChunkHandle(path common.Path, index common.ChunkIndex) (common.ChunkHandle, error) {
-// 	var reply common.GetChunkHandleReply
-// 	// master rpc向master传path和index(文件的第几个块)，返回chunkhandle
-// 	err := common.Call(string(c.master), "Master.RPCGetChunkHandle", common.GetChunkHandleArg{path, index}, &reply)
-// 	if err != nil {
-// 		return 0, err
-// 	}
+// 文件追加写操作
+// 在record append中， client只是指定数据。GFS在其选定的偏移出将数据至少原子性的加入文件一次，并将偏移返回给client
+func (c *Client) Append(path common.Path, data []byte) (offset common.Offset, err error) {
+	if len(data) > common.MaxChunkSize {
+		return 0, fmt.Errorf("Length of appending data exceeds the max chunk size")
+	}
 
-// 	return reply.Handle, nil
-// }
+	var file common.GetFileInfoReply
+	err = common.Call(string(c.master), "Master.FindFileRpc", common.GetFileInfoArg{path}, &file)
+	if err != nil {
+		return
+	}
 
-// // 从给定offset开始阅读文件
-// func (c *Client) ReadChunk(handle common.ChunkHandle, offset common.Offset, data []byte) (int, error) {
-// 	var readLen int // 欲读数据的长度
+	start_chunk := common.ChunkIndex(file.Chunks - 1)
+	if start_chunk < 0 {
+		start_chunk = 0
+	}
 
-// 	// 判断文件是否跨chunk，若跨，则只能读本chunk内的内容
-// 	if common.Offset(len(data))+offset < common.MaxChunkSize {
-// 		readLen = len(data)
-// 	} else {
-// 		readLen = int(common.MaxChunkSize - offset)
-// 	}
+	var chunk_offset common.Offset
+	var remain_data int64
+	data_length := len(data)
+	for {
+		var handle common.ChunkHandle
+		handle, err = c.GetChunkHandle(path, start_chunk)
+		if err != nil {
+			return
+		}
 
-// 	// master rpc返回副本位置信息，给master传chunkhandle，返回一个内含副本位置信息的字符型数组
-// 	var l common.GetReplicasReply
-// 	err := common.Call(string(c.master), "Master.RPCGetReplicas", common.GetReplicasArg{handle}, &l)
-// 	if err != nil {
-// 		return 0, common.Error{common.UnknownError, err.Error()}
-// 	}
-// 	location := l.Locations[rand.Intn(len(l.Locations))] // 随机挑选一个副本读
-// 	if len(l.Locations) == 0 {
-// 		return 0, common.Error{common.UnknownError, "No replica found"}
-// 	}
+		for {
+			chunk_offset, remain_data, err = c.AppendChunk(handle, data)
+			if err == nil || err.(common.Error).Code == common.AppendExceedChunkSize { // append内容超出chunk容量，尝试在下一个chunk中继续append
+				data = data[int64(data_length)-remain_data:]
+				break
+			}
+			log.Println("Append ", handle, " connection error, try again ", err)
+			time.Sleep(50 * time.Millisecond)
+		}
+		if err == nil || err.(common.Error).Code != common.AppendExceedChunkSize {
+			break
+		}
 
-// 	// chunkserver rpc
-// 	var r common.ReadChunkReply
-// 	r.Data = data
-// 	err = common.Call(string(location), "ChunkServer.RPCReadChunk", common.ReadChunkArg{handle, offset, readLen}, &r)
-// 	if err != nil {
-// 		return 0, common.Error{common.UnknownError, err.Error()}
-// 	}
+		// 尝试在下一个chunk中append
+		start_chunk++
+		log.Println("Try on the next chunk ", start_chunk)
+	}
 
-// 	return r.Length, nil
-// }
+	if err != nil {
+		return
+	}
+
+	offset = common.Offset(start_chunk)*common.MaxChunkSize + chunk_offset
+	return offset, nil
+}
+
+////////////////////////////////////
+//具体功能实现                      //
+////////////////////////////////////
+
+// 寻找chunkhandle
+func (c *Client) GetChunkHandle(path common.Path, index common.ChunkIndex) (common.ChunkHandle, error) {
+	var reply common.GetChunkHandleReply
+	// master rpc向master传path和index(文件的第几个块)，返回chunkhandle
+	err := common.Call(string(c.master), "Master.OpenFile", common.GetChunkHandleArg{path, index}, &reply)
+	if err != nil {
+		return 0, err
+	}
+
+	return reply.Handle, nil
+}
+
+// 从给定offset开始阅读文件
+// 返回：读取数据长度，error
+func (c *Client) ReadChunk(handle common.ChunkHandle, offset common.Offset, data []byte) (int, error) {
+	var readLen int // 欲读数据的长度
+
+	// 判断文件是否跨chunk，若跨，则只能读本chunk内的内容
+	if common.Offset(len(data))+offset < common.MaxChunkSize {
+		readLen = len(data)
+	} else {
+		readLen = int(common.MaxChunkSize - offset)
+	}
+
+	// master rpc返回副本位置信息，给master传chunkhandle，返回一个内含副本位置信息的字符型数组
+	var l common.GetReplicasReply
+	err := common.Call(string(c.master), "Master.chunkLocations", common.GetReplicasArg{handle}, &l)
+	if err != nil {
+		return 0, common.Error{common.UnknownError, err.Error()}
+	}
+	location := l.Locations[rand.Intn(len(l.Locations))] // 随机挑选一个副本读
+	if len(l.Locations) == 0 {
+		return 0, common.Error{common.UnknownError, "No replica found"}
+	}
+
+	// chunkserver rpc
+	var r common.ReadChunkReply
+	r.Data = data
+	err = common.Call(string(location), "ChunkServer.RPCReadChunk", common.ReadChunkArg{handle, offset, readLen}, &r)
+	if err != nil {
+		return 0, common.Error{common.UnknownError, err.Error()}
+	}
+
+	return r.Length, nil
+}
+
+// 从给定offset开始写入文件
+func (c *Client) WriteChunk(handle common.ChunkHandle, offset common.Offset, data []byte) error {
+	if len(data)+int(offset) > common.MaxChunkSize {
+		return fmt.Errorf("Current data lengths + Current offset exceeds the max chunk size")
+	}
+
+	var l common.GetReplicasReply
+	err := common.Call(string(c.master), "Master.chunkLocations", common.GetReplicasArg{handle}, &l)
+	if err != nil {
+		return common.Error{common.UnknownError, err.Error()}
+	}
+
+	// 不考虑租约，依次写入所有副本
+	current := 0
+	for {
+		location := l.Locations[current]
+
+		if len(l.Locations) == 0 {
+			return common.Error{common.UnknownError, "No replica found"}
+		}
+
+		// ChunkServer rpc
+		var r common.WriteChunkReply
+		wcargs := common.WriteChunkArg{handle, offset, data}
+		err = common.Call(string(location), "ChunkServer.RPCWriteChunk", wcargs, &r)
+		if err != nil {
+			return common.Error{common.UnknownError, err.Error()}
+		}
+
+		current += 1
+		if current == len(l.Locations) {
+			break
+		}
+	}
+
+	return nil
+}
+
+// append的data长度不应超过 1/4 chunk大小
+func (c *Client) AppendChunk(handle common.ChunkHandle, data []byte) (offset common.Offset, remain int64, err error) {
+	if len(data) > common.MaxChunkSize {
+		return 0, -1, common.Error{common.UnknownError, fmt.Sprintf("Lenghth of appending data exceeds the max chunk size, should be within 16 KB")}
+	}
+
+	var l common.GetReplicasReply
+	err = common.Call(string(c.master), "Master.chunkLocations", common.GetReplicasArg{handle}, &l)
+	if err != nil {
+		return -1, -1, common.Error{common.UnknownError, err.Error()}
+	}
+
+	// 不考虑租约，依次append所有副本
+	current := 0
+	for {
+		location := l.Locations[current]
+
+		if len(l.Locations) == 0 {
+			return -1, -1, common.Error{common.UnknownError, "No replica found"}
+		}
+
+		// ChunkServer rpc
+		var r common.AppendChunkReply
+		acargs := common.AppendChunkArg{handle, data}
+		err = common.Call(string(location), "ChunkServer.RPCAppendChunk", acargs, &r)
+		if err != nil {
+			return -1, -1, common.Error{common.UnknownError, err.Error()}
+		}
+		if r.ErrorCode == common.AppendExceedChunkSize {
+			return r.Offset, r.Remain, common.Error{r.ErrorCode, "Append over chunks"}
+		}
+
+		current += 1
+		if current == len(l.Locations) {
+			return r.Offset, r.Remain, nil
+		}
+	}
+}

@@ -2,7 +2,7 @@ package main
 import(
 	"distributedSystemHomework/master"
 )
-func main1(){
+func main(){
 	m:=master.NewMaster()
 	m.Main()
 }

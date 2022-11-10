@@ -3,7 +3,7 @@ package common
 type Path string
 type Offset int64
 type ServerAddress string
-type ChunkIndex int
+type ChunkIndex uint64
 type ChunkHandle int64
 
 type ErrorCode int

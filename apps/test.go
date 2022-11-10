@@ -5,6 +5,7 @@ import (
 	"distributedSystemHomework/master"
 	"encoding/json"
 	"fmt"
+	"net/rpc"
 	"os"
 	"strings"
 	// "distributedSystemHomework/chunkserver"
@@ -38,11 +39,23 @@ func main2() {
 	file1.Write(outPut1)
 	file1.Close()
 
-
 	fmt.Println(res.FileName)
 }
 
-func main(){
-	master.TestMaster()
+func testMasterServer() {
+	c, _ := rpc.Dial("tcp", "127.0.0.1:1234")
+
+	defer c.Close()
+	var args = &common.CreateArgs{"", "node1"}
+	var reply = &common.CreateReply{""}
+	c.Call("Master.CreateDirectoryRpc", args, reply)
+	fmt.Println(reply.TestRes)
+}
+
+func main() {
+	// m:=master.NewMaster()
+	// m.Main()
 	fmt.Println("-------------------------")
+	testMasterServer()
+	
 }

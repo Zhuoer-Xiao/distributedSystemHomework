@@ -9,7 +9,7 @@ import (
 
 //分配端口
 const (
-	HeartBeatPort =iota+626
+	HeartBeatPort =iota+1233
 	ManagerPort
 )
 

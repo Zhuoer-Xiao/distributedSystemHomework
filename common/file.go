@@ -2,8 +2,9 @@ package common
 
 //定义文件
 type File struct {
-	FileName string   //文件名
-	Chunks   []uint64 //所拥有的chunk
+	FileName   string   //文件名
+	Chunks     []uint64 //所拥有的chunk
+	FileLength int64     //文件长度
 }
 
 func NewFile(name string) *File {
@@ -11,6 +12,6 @@ func NewFile(name string) *File {
 
 	f.FileName = name
 	f.Chunks = make([]uint64, 0)
-
+	f.FileLength =0
 	return f
 }

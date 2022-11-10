@@ -51,21 +51,21 @@ func NewMaster() *Master {
 }
 
 // 找到client需要的文件chunk位置
-// 待修改：index越界，权限问题
-func (m *Master) OpenFile(args *common.OpenArgs, reply *common.OpenReply) error {
-	if common.CheckRead(args.Perm) {
-		file, err := m.nameSpace.FindFile(args.FileName)
-		if err != nil {
-			fmt.Println("Open File: ", args.FileName, " fail.")
-			return err
-		}
-		if len(file.Chunks) < args.Index {
-			return errors.New("Out of chunk's index")
-		} else {
-			reply.ChunkName = file.Chunks[args.Index]
-			reply.ChunkServerName = *m.PickChunkServer(reply.ChunkName)
-		}
+// 待修改：index越界，权限问题,返回chunkserver信息
+func (m *Master) OpenFile(args *common.GetChunkHandleArg, reply *common.GetChunkHandleReply) error {
+
+	file, err := m.nameSpace.FindFile(string(args.Path))
+	if err != nil {
+		fmt.Println("Open File: ", args.Path, " fail.")
+		return err
 	}
+	if len(file.Chunks) < int(args.Index) {
+		return errors.New("Out of chunk's index")
+	} else {
+		reply.Handle = common.ChunkHandle(file.Chunks[args.Index])
+		//reply.ChunkServerNameIp = *m.PickChunkServer(reply.ChunkName).address
+	}
+
 	//无权限
 	return errors.New("No Permission")
 }
@@ -91,6 +91,7 @@ func (m *Master) WriteFileInfo() error {
 
 // 开启master处理
 // 每隔十分钟将master数据写入内存
+// 已测试
 func (m *Master) Main() error {
 	m.openHeartbeatServer()
 	for true {
@@ -110,7 +111,7 @@ func (m *Master) PickChunkServer(chunkNum uint64) *chunkserver.ChunkServer {
 }
 
 // 监听rpc信息
-// 待测试
+// 已测试
 func (m *Master) openHeartbeatServer() {
 	r := rpc.NewServer()
 	r.Register(m)
@@ -139,4 +140,27 @@ func (m *Master) UpdateMetaInfo(args *common.UpdateArgs, reply *common.UpdateRep
 // 待测试
 func (m *Master) AddChunkserver(newChunkServer *chunkserver.ChunkServer, chunkserverIp string) {
 	m.chunkServers[chunkserverIp] = newChunkServer
+}
+
+// 添加目录rpc包装，已测试
+func (m *Master) CreateDirectoryRpc(args *common.CreateArgs, reply *common.CreateReply) error {
+	//log.Println("rpc--------")
+	m.nameSpace.CreateDirectory(args.Test1, args.Test2)
+	return nil
+}
+
+// 待测试
+func (m *Master) FindFileRpc(args *common.GetFileInfoArg, reply *common.GetFileInfoReply) error {
+	file, _ := m.nameSpace.FindFile(string(args.Path))
+	reply.Length = file.FileLength
+	reply.Chunks = int64(len(file.Chunks))
+	return nil
+}
+
+func (m *Master) chunkLocations(args *common.GetReplicasArg, reply *common.GetReplicasReply) error {
+	locations := m.chunksLocation[uint64(args.Handle)]
+	for _, location := range locations {
+		reply.Locations = append(reply.Locations, location.Address)
+	}
+	return nil
 }

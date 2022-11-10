@@ -150,6 +150,7 @@ func (m *Master) CreateDirectoryRpc(args *common.CreateArgs, reply *common.Creat
 }
 
 // 待测试
+// 需要追加一个错误信息返回：如果查询不到文件信息，则返回error
 func (m *Master) FindFileRpc(args *common.GetFileInfoArg, reply *common.GetFileInfoReply) error {
 	file, _ := m.nameSpace.FindFile(string(args.Path))
 	reply.Length = file.FileLength

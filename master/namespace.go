@@ -3,7 +3,6 @@ package master
 import (
 	"distributedSystemHomework/common"
 	"errors"
-	
 
 	//"fmt"
 	"strings"
@@ -72,8 +71,6 @@ func (ns *NameSpace) FindFile(path string) (*common.File, error) {
 	return msg, nil
 }
 
-
-
 // 输入文件名，如果没有该文件则创建，如果有则返回该文件信息
 // 已测试
 func (ns *NameSpace) CreateFile(path string) (*common.File, error) {
@@ -104,8 +101,6 @@ func (ns *NameSpace) CreateDirectory(path string, name string) error {
 	d.SubDir[name] = newDir
 	return nil
 }
-
-
 
 // 删除目录
 // 已测试

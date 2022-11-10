@@ -27,7 +27,8 @@ type chunkInfo struct {
 }
 
 const (
-	FilePerm = 0755
+	MetaFileName = "ChunkServer_MetaData"
+	FilePerm     = 0755
 )
 
 func NewChunkServer(csIP, masterIP common.ServerAddress, rootDir string) *ChunkServer {
@@ -54,6 +55,26 @@ func (cs *ChunkServer) HeartBeat() {
 		log.Fatal("ChunkServer Listen Error: ", errx)
 	}
 	go r.Accept(l)
+}
+
+// 元数据存储
+func (cs *ChunkServer) StoreMetaData() error {
+	filename := path.Join(cs.rootDir, MetaFileName)
+	file, err := os.OpenFile(filename, os.O_WRONLY|os.O_CREATE, FilePerm)
+	if err != nil {
+		return err
+	}
+	defer file.Close()
+
+	var metas []common.PersistentChunkInfo
+	for handle, ck := range cs.chunk {
+		metas = append(metas, common.PersistentChunkInfo{
+			Handle: handle, Length: ck.length,
+		})
+	}
+	log.Println("Server %v stored metadata", cs.address)
+
+	return nil
 }
 
 ////////////////////////////

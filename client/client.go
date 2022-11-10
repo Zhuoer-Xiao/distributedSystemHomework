@@ -174,6 +174,8 @@ func (c *Client) Append(path common.Path, data []byte) (offset common.Offset, er
 
 	var chunk_offset common.Offset
 	var remain_data int64
+	var data_a []byte
+	data_a = data
 	data_length := len(data)
 	for {
 		var handle common.ChunkHandle
@@ -183,9 +185,9 @@ func (c *Client) Append(path common.Path, data []byte) (offset common.Offset, er
 		}
 
 		for {
-			chunk_offset, remain_data, err = c.AppendChunk(handle, data)
+			chunk_offset, remain_data, err = c.AppendChunk(handle, data_a)
 			if err == nil || err.(common.Error).Code == common.AppendExceedChunkSize { // append内容超出chunk容量，尝试在下一个chunk中继续append
-				data = data[int64(data_length)-remain_data:]
+				data_a = data[int64(data_length)-remain_data:]
 				break
 			}
 			log.Println("Append ", handle, " connection error, try again ", err)

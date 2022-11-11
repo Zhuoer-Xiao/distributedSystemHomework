@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"math/rand"
+	"os"
 	"time"
 
 	"GFS_Homework/common"
@@ -21,13 +22,31 @@ func NewClient(master common.ServerAddress) *Client {
 }
 
 // 文件创建
+// 客户端传给ChunkServer文件路径和ChunkHandle，chunkserver自行进行分块存储
 func (c *Client) Create(path common.Path) error {
 	var reply common.CreateFileReply
 	// master RPC 创建文件，给master一个路径，返回error
-	err := common.Call(string(c.master), "Master.RPCCreateFile", common.CreateFileArg{path}, &reply)
+	file, err := os.Open(string(path))
 	if err != nil {
 		return err
 	}
+	file_len, _ := file.Seek(0, os.SEEK_END)
+	err = common.Call(string(c.master), "Master.RPCCreateFile", common.CreateFileArg{path, file_len}, &reply)
+	if err != nil {
+		return err
+	}
+
+	var argx common.CreateAndWriteArg
+	var replyx common.CreateAndWriteReply
+	for _, h := range reply.Handle {
+		argx.Handles = append(argx.Handles, h)
+	}
+	argx.Path = path
+	err = common.Call(string(c.master), "ChunkServer.RPCCreateAndWrite", argx, &replyx)
+	if err != nil {
+		return err
+	}
+
 	return nil
 }
 
@@ -103,6 +122,7 @@ func (c *Client) Read(path common.Path, offset common.Offset, data []byte) (n in
 }
 
 // 文件写操作
+// write和append若返回
 func (c *Client) Write(path common.Path, offset common.Offset, data []byte) error {
 	var file common.GetFileInfoReply
 	err := common.Call(string(c.master), "Master.FindFileRpc", common.GetFileInfoArg{path}, &file)
@@ -173,10 +193,6 @@ func (c *Client) Append(path common.Path, data []byte) (offset common.Offset, er
 	}
 
 	var chunk_offset common.Offset
-	var remain_data int64
-	var data_a []byte
-	data_a = data
-	data_length := len(data)
 	for {
 		var handle common.ChunkHandle
 		handle, err = c.GetChunkHandle(path, start_chunk)
@@ -185,9 +201,8 @@ func (c *Client) Append(path common.Path, data []byte) (offset common.Offset, er
 		}
 
 		for {
-			chunk_offset, remain_data, err = c.AppendChunk(handle, data_a)
+			chunk_offset, err = c.AppendChunk(handle, data)
 			if err == nil || err.(common.Error).Code == common.AppendExceedChunkSize { // append内容超出chunk容量，尝试在下一个chunk中继续append
-				data_a = data[int64(data_length)-remain_data:]
 				break
 			}
 			log.Println("Append ", handle, " connection error, try again ", err)
@@ -199,11 +214,14 @@ func (c *Client) Append(path common.Path, data []byte) (offset common.Offset, er
 
 		// 尝试在下一个chunk中append
 		start_chunk++
-		log.Println("Try on the next chunk ", start_chunk)
-	}
-
-	if err != nil {
-		return
+		log.Println("Create a new chunk, Try on the next chunk ", start_chunk)
+		var r common.ApplyChunkReply
+		common.Call(string(c.master), "Master.RPCApplyNewChunk", common.ApplyChunkArg{path}, &r)
+		handle = r.Handle
+		chunk_offset, err = c.AppendChunk(handle, data)
+		if err == nil {
+			break
+		}
 	}
 
 	offset = common.Offset(start_chunk)*common.MaxChunkSize + chunk_offset
@@ -299,15 +317,15 @@ func (c *Client) WriteChunk(handle common.ChunkHandle, offset common.Offset, dat
 }
 
 // append的data长度不应超过 1/4 chunk大小
-func (c *Client) AppendChunk(handle common.ChunkHandle, data []byte) (offset common.Offset, remain int64, err error) {
+func (c *Client) AppendChunk(handle common.ChunkHandle, data []byte) (offset common.Offset, err error) {
 	if len(data) > common.MaxChunkSize {
-		return 0, -1, common.Error{common.UnknownError, fmt.Sprintf("Lenghth of appending data exceeds the max chunk size, should be within 16 KB")}
+		return 0, common.Error{common.UnknownError, fmt.Sprintf("Lenghth of appending data exceeds the max chunk size, should be within 16 KB")}
 	}
 
 	var l common.GetReplicasReply
 	err = common.Call(string(c.master), "Master.chunkLocations", common.GetReplicasArg{handle}, &l)
 	if err != nil {
-		return -1, -1, common.Error{common.UnknownError, err.Error()}
+		return -1, common.Error{common.UnknownError, err.Error()}
 	}
 
 	// 不考虑租约，依次append所有副本
@@ -316,7 +334,7 @@ func (c *Client) AppendChunk(handle common.ChunkHandle, data []byte) (offset com
 		location := l.Locations[current]
 
 		if len(l.Locations) == 0 {
-			return -1, -1, common.Error{common.UnknownError, "No replica found"}
+			return -1, common.Error{common.UnknownError, "No replica found"}
 		}
 
 		// ChunkServer rpc
@@ -324,15 +342,15 @@ func (c *Client) AppendChunk(handle common.ChunkHandle, data []byte) (offset com
 		acargs := common.AppendChunkArg{handle, data}
 		err = common.Call(string(location), "ChunkServer.RPCAppendChunk", acargs, &r)
 		if err != nil {
-			return -1, -1, common.Error{common.UnknownError, err.Error()}
+			return -1, common.Error{common.UnknownError, err.Error()}
 		}
 		if r.ErrorCode == common.AppendExceedChunkSize {
-			return r.Offset, r.Remain, common.Error{r.ErrorCode, "Append over chunks"}
+			return r.Offset, common.Error{r.ErrorCode, "Append over chunks"}
 		}
 
 		current += 1
 		if current == len(l.Locations) {
-			return r.Offset, r.Remain, nil
+			return r.Offset, nil
 		}
 	}
 }

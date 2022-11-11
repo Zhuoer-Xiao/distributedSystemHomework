@@ -14,7 +14,7 @@ import (
 
 // chunkserver的数据结构
 type ChunkServer struct {
-	address common.ServerAddress
+	Address common.ServerAddress
 	master  common.ServerAddress
 	rootDir string
 	Port    int
@@ -33,7 +33,7 @@ const (
 
 func NewChunkServer(csIP, masterIP common.ServerAddress, rootDir string) *ChunkServer {
 	cs := &ChunkServer{
-		address: csIP,
+		Address: csIP,
 		master:  masterIP,
 		rootDir: rootDir,
 		chunk:   make(map[common.ChunkHandle]*chunkInfo),
@@ -72,7 +72,7 @@ func (cs *ChunkServer) StoreMetaData() error {
 			Handle: handle, Length: ck.length,
 		})
 	}
-	log.Println("Server %v stored metadata", cs.address)
+	log.Println("Server %v stored metadata", cs.Address)
 
 	return nil
 }
@@ -154,7 +154,7 @@ func (cs *ChunkServer) RPCAppendChunk(args common.AppendChunkArg, reply *common.
 
 // chunkserver提供的创建一个新chunkRPC，给定了chunk handle
 func (cs *ChunkServer) RPCCreateChunk(args common.CreateChunkArg, reply common.CreateChunkReply) error {
-	log.Println("Chunk Server %v : Create chunk %v", cs.address, args.Handle)
+	log.Println("Chunk Server %v : Create chunk %v", cs.Address, args.Handle)
 
 	// 若当前chunk handle号已被占用，则返回错误信息
 	if _, ck_info := cs.chunk[args.Handle]; ck_info {
@@ -173,6 +173,15 @@ func (cs *ChunkServer) RPCCreateChunk(args common.CreateChunkArg, reply common.C
 	return nil
 }
 
+// 删除chunk，传入chunkhandle
+func (cs *ChunkServer) RPCDeleteChunk(handle common.ChunkHandle) error {
+	delete(cs.chunk, handle)
+
+	filename := path.Join(cs.rootDir, fmt.Sprintf("chunk%v.txt", handle))
+	err := os.Remove(filename)
+	return err
+}
+
 /////////////////////////
 // 文件操作实现          //
 /////////////////////////
@@ -188,7 +197,7 @@ func (cs *ChunkServer) readChunk(handle common.ChunkHandle, offset common.Offset
 	}
 	defer f.Close()
 
-	log.Println("Server %v : read chunk %v at offset: %v, length: %v", cs.address, handle, offset, len(data))
+	log.Println("Server %v : read chunk %v at offset: %v, length: %v", cs.Address, handle, offset, len(data))
 	return f.ReadAt(data, int64(offset))
 }
 
@@ -206,7 +215,7 @@ func (cs *ChunkServer) writeChunk(handle common.ChunkHandle, data []byte, offset
 		log.Fatal("New chunk length exceeds the max chunk size")
 	}
 
-	log.Println("Server %v : write to chunk %v at offset: %v, length: %v", cs.address, handle, offset, len(data))
+	log.Println("Server %v : write to chunk %v at offset: %v, length: %v", cs.Address, handle, offset, len(data))
 	filename := path.Join(cs.rootDir, fmt.Sprintf("chunk%v.txt", handle))
 	file, err := os.OpenFile(filename, os.O_WRONLY|os.O_CREATE, FilePerm)
 	if err != nil {

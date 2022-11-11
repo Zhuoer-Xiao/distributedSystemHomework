@@ -136,10 +136,8 @@ func (cs *ChunkServer) RPCAppendChunk(args common.AppendChunkArg, reply *common.
 	if newLen > common.MaxChunkSize { // 一个chunk装不下
 		ck.length = common.MaxChunkSize
 		reply.ErrorCode = common.AppendExceedChunkSize
-		reply.Remain = int64(len(data)) - int64(common.MaxChunkSize) + int64(ck.length)
 	} else {
 		ck.length = newLen
-		reply.Remain = 0
 	}
 	reply.Offset = offset
 
@@ -153,6 +151,7 @@ func (cs *ChunkServer) RPCAppendChunk(args common.AppendChunkArg, reply *common.
 }
 
 // chunkserver提供的创建一个新chunkRPC，给定了chunk handle
+// 创建文件时使用，传入文件路径和偏移量
 func (cs *ChunkServer) RPCCreateChunk(args common.CreateChunkArg, reply common.CreateChunkReply) error {
 	log.Println("Chunk Server %v : Create chunk %v", cs.Address, args.Handle)
 
@@ -172,6 +171,12 @@ func (cs *ChunkServer) RPCCreateChunk(args common.CreateChunkArg, reply common.C
 
 	return nil
 }
+
+// 文件创建部分函数，待完成
+/*func (cs *ChunkServer) RPCCreateAndWrite(args common.CreateAndWriteArg, reply common.CreateAndWriteReply) error {
+	path, all_handle := args.Path, args.Handles
+
+}*/
 
 // 删除chunk，传入chunkhandle
 func (cs *ChunkServer) RPCDeleteChunk(handle common.ChunkHandle) error {

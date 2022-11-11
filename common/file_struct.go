@@ -7,10 +7,13 @@ type ChunkIndex int
 type ChunkHandle uint64
 
 type CreateFileArg struct {
-	Path Path
+	Path   Path
+	Length int64
 }
 
-type CreateFileReply struct{}
+type CreateFileReply struct {
+	Handle []ChunkHandle
+}
 
 type DeleteFileArg struct {
 	Path Path
@@ -83,14 +86,27 @@ type AppendChunkArg struct {
 
 type AppendChunkReply struct {
 	Offset    Offset
-	Remain    int64
 	ErrorCode ErrorCode
+}
+
+type ApplyChunkArg struct {
+	Path Path
+}
+
+type ApplyChunkReply struct {
+	Handle ChunkHandle
 }
 
 type CreateChunkArg struct {
 	Handle ChunkHandle
 }
 
-type CreateChunkReply struct {
-	ErrorCode ErrorCode
+type CreateChunkReply struct{}
+
+type CreateAndWriteArg struct {
+	Path    Path
+	Handles []ChunkHandle
+}
+
+type CreateAndWriteReply struct {
 }

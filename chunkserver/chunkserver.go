@@ -1,9 +1,9 @@
 package chunkserver
 
 import (
+	"encoding/gob"
 	"fmt"
 	"log"
-	"math/rand"
 	"net"
 	"net/rpc"
 	"os"
@@ -31,6 +31,8 @@ const (
 	FilePerm     = 0755
 )
 
+// 创建一个新的ChunkServer
+// 已测试
 func NewChunkServer(csIP, masterIP common.ServerAddress, rootDir string) *ChunkServer {
 	cs := &ChunkServer{
 		Address: csIP,
@@ -38,7 +40,7 @@ func NewChunkServer(csIP, masterIP common.ServerAddress, rootDir string) *ChunkS
 		rootDir: rootDir,
 		chunk:   make(map[common.ChunkHandle]*chunkInfo),
 	}
-	port := 1024 + rand.Intn(65536-1024)
+	port := 1234
 	cs.Port = port
 
 	//Register
@@ -57,9 +59,17 @@ func (cs *ChunkServer) HeartBeat() {
 	go r.Accept(l)
 }
 
+func (cs *ChunkServer) main() error {
+	cs = new(ChunkServer)
+	cs.HeartBeat()
+
+	return nil
+}
+
 // 元数据存储
+// 已测试
 func (cs *ChunkServer) StoreMetaData() error {
-	filename := path.Join(cs.rootDir, MetaFileName)
+	filename := path.Join(cs.rootDir, string(cs.Address+MetaFileName))
 	file, err := os.OpenFile(filename, os.O_WRONLY|os.O_CREATE, FilePerm)
 	if err != nil {
 		return err
@@ -72,7 +82,9 @@ func (cs *ChunkServer) StoreMetaData() error {
 			Handle: handle, Length: ck.length,
 		})
 	}
-	log.Println("Server %v stored metadata", cs.Address)
+	log.Println("Server stored metadata: ", cs.Address)
+	enc := gob.NewEncoder(file)
+	err = enc.Encode(metas)
 
 	return nil
 }
@@ -152,13 +164,8 @@ func (cs *ChunkServer) RPCAppendChunk(args common.AppendChunkArg, reply *common.
 
 // chunkserver提供的创建一个新chunkRPC，给定了chunk handle
 // 创建文件时使用，传入文件路径和偏移量
-func (cs *ChunkServer) RPCCreateChunk(args common.CreateChunkArg, reply common.CreateChunkReply) error {
-	log.Println("Chunk Server %v : Create chunk %v", cs.Address, args.Handle)
-
-	// 若当前chunk handle号已被占用，则返回错误信息
-	if _, ck_info := cs.chunk[args.Handle]; ck_info {
-		return fmt.Errorf("Chunk %v already exists", args.Handle)
-	}
+func (cs *ChunkServer) RPCCreateChunk(args common.CreateChunkArg, reply *common.CreateChunkReply) error {
+	fmt.Println("Chunk Server : ", cs.Address, " Create chunk ", args.Handle)
 
 	cs.chunk[args.Handle] = &chunkInfo{
 		length: 0,
@@ -173,10 +180,25 @@ func (cs *ChunkServer) RPCCreateChunk(args common.CreateChunkArg, reply common.C
 }
 
 // 文件创建部分函数，待完成
-/*func (cs *ChunkServer) RPCCreateAndWrite(args common.CreateAndWriteArg, reply common.CreateAndWriteReply) error {
-	path, all_handle := args.Path, args.Handles
+func (cs *ChunkServer) RPCCreateAndWrite(args common.CreateAndWriteArg, reply *common.CreateAndWriteReply) error {
+	data, handle := args.Data, args.Handle
+	log.Println("Chunk Server : ", cs.Address, " Create and write chunk ", handle)
 
-}*/
+	cs.chunk[handle] = &chunkInfo{
+		length: common.Offset(len(data)),
+	}
+	filename := path.Join(cs.rootDir, fmt.Sprintf("chunk%v.txt", handle))
+	chunk, err := os.OpenFile(filename, os.O_WRONLY|os.O_CREATE, 0644)
+	if err != nil {
+		return err
+	}
+	_, err = chunk.WriteAt(data, 0)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
 
 // 删除chunk，传入chunkhandle
 func (cs *ChunkServer) RPCDeleteChunk(handle common.ChunkHandle) error {

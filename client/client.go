@@ -3,6 +3,7 @@ package client
 import (
 	"fmt"
 	"log"
+	"math"
 	"math/rand"
 	"os"
 	"time"
@@ -15,9 +16,9 @@ type Client struct {
 }
 
 // 返回一个gfs client
-func NewClient(master common.ServerAddress) *Client {
+func NewClient() *Client {
 	return &Client{
-		master: master,
+		master: "127.0.0.1:1234",
 	}
 }
 
@@ -30,21 +31,35 @@ func (c *Client) Create(path common.Path) error {
 	if err != nil {
 		return err
 	}
-	file_len, _ := file.Seek(0, os.SEEK_END)
+	defer file.Close()
+
+	file_info, _ := file.Stat()
+	var k = make([]byte, file_info.Size())
+	for {
+		h, _ := file.Read(k)
+		if h == int(file_info.Size()) {
+			break
+		}
+	}
+	file_len := file_info.Size()
 	err = common.Call(string(c.master), "Master.RPCCreateFile", common.CreateFileArg{path, file_len}, &reply)
 	if err != nil {
 		return err
 	}
 
-	var argx common.CreateAndWriteArg
-	var replyx common.CreateAndWriteReply
-	for _, h := range reply.Handle {
-		argx.Handles = append(argx.Handles, h)
-	}
-	argx.Path = path
-	err = common.Call(string(c.master), "ChunkServer.RPCCreateAndWrite", argx, &replyx)
-	if err != nil {
-		return err
+	start := 0
+	ck_size := 64 << 10
+	for {
+		cs_IP := reply.Address[start]
+		handle := reply.Handle[start]
+		data := k[start*ck_size : int(math.Min(float64((start+1)*ck_size), float64(len(k))))]
+		var r common.CreateAndWriteReply
+		err = common.Call(string(cs_IP), "ChunkServer.RPCCreateAndWrite", common.CreateAndWriteArg{data, handle}, &r)
+
+		start++
+		if start == len(reply.Handle) {
+			break
+		}
 	}
 
 	return nil

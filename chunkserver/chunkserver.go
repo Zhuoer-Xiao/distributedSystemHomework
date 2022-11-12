@@ -179,7 +179,7 @@ func (cs *ChunkServer) RPCCreateChunk(args common.CreateChunkArg, reply *common.
 	return nil
 }
 
-// 文件创建部分函数，待完成
+// 文件创建部分函数，创建chunk并且写
 func (cs *ChunkServer) RPCCreateAndWrite(args common.CreateAndWriteArg, reply *common.CreateAndWriteReply) error {
 	data, handle := args.Data, args.Handle
 	log.Println("Chunk Server : ", cs.Address, " Create and write chunk ", handle)

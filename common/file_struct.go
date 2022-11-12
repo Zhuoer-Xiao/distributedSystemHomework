@@ -12,7 +12,8 @@ type CreateFileArg struct {
 }
 
 type CreateFileReply struct {
-	Handle []ChunkHandle
+	Address []ServerAddress
+	Handle  []ChunkHandle
 }
 
 type DeleteFileArg struct {
@@ -104,9 +105,8 @@ type CreateChunkArg struct {
 type CreateChunkReply struct{}
 
 type CreateAndWriteArg struct {
-	Path    Path
-	Handles []ChunkHandle
+	Data   []byte
+	Handle ChunkHandle
 }
 
-type CreateAndWriteReply struct {
-}
+type CreateAndWriteReply struct {}

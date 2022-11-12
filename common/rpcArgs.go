@@ -1,6 +1,7 @@
 package common
 
 import (
+	"distributedSystemHomework/chunkserver"
 	"net"
 	//"distributedSystemHomework/chunkserver"
 )
@@ -19,20 +20,20 @@ type OpenArgs struct {
 	Index    int    //所在chunk块
 	Perm     uint32 //权限
 }
-//待修改
+
+// 待修改
 type OpenReply struct {
-	ChunkName uint64//块id
-	ChunkServerNameIp string//块所在chunkserver信息
+	ChunkName         uint64 //块id
+	ChunkServerNameIp string //块所在chunkserver信息
 }
-//更新元数据
+
+// 更新元数据
 type UpdateArgs struct {
 	Files []*File
 }
 
 type UpdateReply struct {
-	
 }
-
 
 // 关闭文件
 type CloseArgs struct {
@@ -65,7 +66,6 @@ type CreateReply struct {
 	TestRes string
 }
 
-
 // append
 type AppendArgs struct {
 }
@@ -78,4 +78,12 @@ type ExistArgs struct {
 }
 
 type ExistReply struct {
+}
+
+type CreateChunkRpcArgs struct {
+}
+
+type CreateChunkRpcReply struct {
+	Addresses []ServerAddress
+	Handle ChunkHandle
 }

@@ -1,5 +1,9 @@
 package common
 
+const(
+	BlockSize=64
+)
+
 //定义文件
 type File struct {
 	FileName   string   //文件名

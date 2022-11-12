@@ -36,8 +36,9 @@ import (
 type Master struct {
 	chunkServers map[string]*chunkserver.ChunkServer //保存所有chunkserver信息，通过ip来标志chunkserver
 	nameSpace    *NameSpace                          //命名空间
-	//openFiles      []*common.File                        //已打开文件
-	chunksLocation map[uint64][]*chunkserver.ChunkServer //chunk所对应的chunk文件
+
+	chunksLocation map[uint64]*[3]string //chunk所对应的chunk文件
+	uuid           *common.UuidGenerate
 }
 
 // 初始化master
@@ -46,7 +47,8 @@ func NewMaster() *Master {
 	m := new(Master)
 	m.chunkServers = make(map[string]*chunkserver.ChunkServer)
 	m.nameSpace = NewNameSpace()
-	m.chunksLocation = make(map[uint64][]*chunkserver.ChunkServer)
+	m.chunksLocation = make(map[uint64]*[3]string)
+	m.uuid = common.NewUuidGnerate()
 	return m
 }
 
@@ -107,7 +109,7 @@ func (m *Master) Main() error {
 func (m *Master) PickChunkServer(chunkNum uint64) *chunkserver.ChunkServer {
 	r := rand.New(rand.NewSource(time.Now().Unix()))
 	pickNum := r.Intn(2)
-	return m.chunksLocation[chunkNum][pickNum]
+	return m.chunkServers[m.chunksLocation[chunkNum][pickNum]]
 }
 
 // 监听rpc信息
@@ -150,18 +152,118 @@ func (m *Master) CreateDirectoryRpc(args *common.CreateArgs, reply *common.Creat
 }
 
 // 待测试
-// 需要追加一个错误信息返回：如果查询不到文件信息，则返回error
+// 需要追加一个错误信息返回：如果查询不到文件信息，则返回error(已修改)
 func (m *Master) FindFileRpc(args *common.GetFileInfoArg, reply *common.GetFileInfoReply) error {
-	file, _ := m.nameSpace.FindFile(string(args.Path))
+	file, err := m.nameSpace.FindFile(string(args.Path))
 	reply.Length = file.FileLength
 	reply.Chunks = int64(len(file.Chunks))
-	return nil
+	return err
 }
 
 func (m *Master) chunkLocations(args *common.GetReplicasArg, reply *common.GetReplicasReply) error {
 	locations := m.chunksLocation[uint64(args.Handle)]
 	for _, location := range locations {
 		reply.Locations = append(reply.Locations, location.Address)
+	}
+	return nil
+}
+
+// 创建文件,根据文件索引创建chunk，输入文件路径和长度
+// 待解决，返回值是一个address还是所有address？
+func (m *Master) CreateFileRpc(args *common.CreateFileArg, reply *common.CreateFileReply) error {
+	//首先创建路径
+	f, _ := m.nameSpace.CreateFile(string(args.Path))
+	size := args.Length / common.BlockSize
+	if args.Length-size*common.BlockSize > 0 {
+		size += 1
+	}
+	//创建相应chunk并更新文件元数据
+	for i := 0; i < int(size); i++ {
+		newHandle := m.CreateChunk()
+		f.Chunks = append(f.Chunks, uint64(newHandle))
+		reply.Address = append(reply.Address, m.PickChunkServer(uint64(newHandle)).Address)
+		reply.Handle = append(reply.Handle, newHandle)
+	}
+
+	return nil
+
+}
+
+// 输入路径，chunk删掉，调用rpcDeleteChunk（传入chunkHandle）
+// 待解决，rpcdeldete参数
+func (m *Master) DeleteFileRpc(args *common.DeleteFileArg, reply *common.DeleteFileReply) {
+	f, _ := m.nameSpace.FindFile(string(args.Path))
+	for i := 0; i < len(f.Chunks); i++ {
+		for j := 0; j < 3; j++ {
+			c, _ := rpc.Dial("tcp", m.chunksLocation[f.Chunks[i]][j])
+
+			defer c.Close()
+			var args = &common.DeleteChunkArgs{common.ChunkHandle(f.Chunks[i])}
+			var reply = &common.DeleteChunkArgs{}
+			c.Call("chunkServer.RPCDeleteChunk", args, reply)
+		}
+
+	}
+}
+
+// 创建新的chunkHandle,更新元数据，rpc让chunkserver创建chunk
+func (m *Master) CreateChunk() common.ChunkHandle {
+	newHandle := m.uuid.GenerateUuid() //生成handle
+	var randNums []int
+	r := rand.New(rand.NewSource(time.Now().Unix()))
+	r.Intn(4)
+	var tag [5]int = [5]int{0, 0, 0, 0, 0}
+	//挑选3个chunkserver
+	for {
+		if len(randNums) >= 3 {
+			break
+		}
+		pickNum := r.Intn(4)
+		if tag[pickNum] == 0 {
+			randNums = append(randNums, pickNum)
+			tag[pickNum] = 1
+		} else {
+			pickNumPlus := (pickNum + 1) % 5
+			if tag[pickNumPlus] == 0 {
+				randNums = append(randNums, pickNumPlus)
+				tag[pickNumPlus] = 1
+			}
+		}
+	}
+	//三次rpc
+	for i, randNum := range randNums {
+		var pickIp string
+		switch randNum {
+		case 0:
+			pickIp = "127.0.0.5:1234"
+		case 1:
+			pickIp = "127.0.0.6:1234"
+		case 2:
+			pickIp = "127.0.0.7:1234"
+		case 3:
+			pickIp = "127.0.0.8:1234"
+		case 4:
+			pickIp = "127.0.0.9:1234"
+		}
+		c, _ := rpc.Dial("tcp", pickIp)
+
+		defer c.Close()
+		var args = &common.CreateChunkArg{common.ChunkHandle(newHandle)}
+		var reply = &common.CreateChunkReply{}
+		c.Call("chunkServer.RPCCreateChunk", args, reply)
+		//更新元数据
+		m.chunksLocation[newHandle][i] = string(pickIp)
+	}
+	return common.ChunkHandle(newHandle)
+}
+
+// 创建chunk
+// 待解决args与reply
+func (m *Master) createChunkRpc(args *common.CreateChunkRpcArgs, reply *common.CreateChunkRpcReply) error {
+	newHandle := m.CreateChunk()
+	reply.Handle = newHandle
+	for i := 0; i < len(m.chunksLocation[uint64(newHandle)]); i++ {
+		reply.Addresses = append(reply.Addresses, common.ServerAddress(m.chunksLocation[uint64(newHandle)][i]))
 	}
 	return nil
 }

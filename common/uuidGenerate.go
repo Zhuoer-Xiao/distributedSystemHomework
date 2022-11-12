@@ -5,16 +5,22 @@ package common
 import(
 	"sync"
 )
+
+var Mu sync.Mutex
 type UuidGenerate struct{
 	UuidNow uint64
 	mu sync.Mutex
 }
 
-func(u *UuidGenerate)NewUuidGnerate(){
-	u.UuidNow=0
+func NewUuidGnerate()*UuidGenerate{
+	Uu:=&UuidGenerate{}
+	Uu.UuidNow=0
+	return Uu
 }
 
 func (u *UuidGenerate)GenerateUuid()uint64{
+	u.mu.Lock()
 	u.UuidNow++
+	defer u.mu.Unlock()
 	return u.UuidNow
 }

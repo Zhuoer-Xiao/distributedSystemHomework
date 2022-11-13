@@ -1,7 +1,6 @@
 package common
 
 import (
-	"distributedSystemHomework/chunkserver"
 	"net"
 	//"distributedSystemHomework/chunkserver"
 )
@@ -85,6 +84,6 @@ type CreateChunkRpcArgs struct {
 }
 
 type CreateChunkRpcReply struct {
-	Addresses []ServerAddress
+	//Addresses []ServerAddress
 	Handle ChunkHandle
 }

@@ -204,6 +204,7 @@ func (m *Master) DeleteFileRpc(args *common.DeleteFileArg, reply *common.DeleteF
 		}
 
 	}
+	m.nameSpace.DeleteFile(string(args.Path))
 }
 
 // 创建新的chunkHandle,更新元数据，rpc让chunkserver创建chunk
@@ -268,4 +269,24 @@ func (m *Master) createChunkRpc(args *common.CreateChunkRpcArgs, reply *common.C
 	// 	reply.Addresses = append(reply.Addresses, common.ServerAddress(m.chunksLocation[uint64(newHandle)][i]))
 	// }
 	return nil
+}
+
+// 删除chunk
+// 待测试
+func (m *Master) DeleteChunkRpc(args *common.DeleteChunkRpcArgs, reply *common.DeleteChunkRpcReply) {
+	locations := m.chunksLocation[uint64(args.Handle)]
+	f, _ := m.nameSpace.FindFile(string(args.Path))
+	for i := 0; i < 3; i++ {
+		c, _ := rpc.Dial("tcp", locations[i])
+		defer c.Close()
+		var args = &common.DeleteChunkArgs{args.Handle}
+		var reply = &common.DeleteChunkArgs{}
+		c.Call("chunkServer.RPCDeleteChunk", args, reply)
+	}
+	for i := 0; i < len(f.Chunks); i++ {
+		if f.Chunks[i] == uint64(args.Handle) {
+			f.Chunks = append(f.Chunks[:i], f.Chunks[(i+1):]...)
+			break
+		}
+	}
 }

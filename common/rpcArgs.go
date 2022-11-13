@@ -87,3 +87,13 @@ type CreateChunkRpcReply struct {
 	//Addresses []ServerAddress
 	Handle ChunkHandle
 }
+
+type DeleteChunkRpcArgs struct {
+	Path Path
+	Handle ChunkHandle
+}
+
+type DeleteChunkRpcReply struct {
+	//Addresses []ServerAddress
+	
+}

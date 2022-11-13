@@ -81,6 +81,7 @@ type ExistReply struct {
 }
 
 type CreateChunkRpcArgs struct {
+	Path string
 }
 
 type CreateChunkRpcReply struct {

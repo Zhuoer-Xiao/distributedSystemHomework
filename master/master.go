@@ -261,7 +261,9 @@ func (m *Master) CreateChunk() common.ChunkHandle {
 // 待解决args与reply
 func (m *Master) createChunkRpc(args *common.CreateChunkRpcArgs, reply *common.CreateChunkRpcReply) error {
 	newHandle := m.CreateChunk()
+	f, _ := m.nameSpace.FindFile(args.Path)
 	reply.Handle = newHandle
+	f.Chunks = append(f.Chunks, uint64(newHandle))
 	for i := 0; i < len(m.chunksLocation[uint64(newHandle)]); i++ {
 		reply.Addresses = append(reply.Addresses, common.ServerAddress(m.chunksLocation[uint64(newHandle)][i]))
 	}

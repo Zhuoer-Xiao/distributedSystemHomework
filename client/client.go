@@ -81,7 +81,6 @@ func (c *Client) Create(path common.Path) error {
 }
 
 // 文件删除
-.. 待修改，传给master什么？master返回什么？
 func (c *Client) Delete(path common.Path) error {
 	var reply common.DeleteFileReply
 	// master RPC 删除文件，给master一个路径，返回error

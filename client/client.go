@@ -50,12 +50,27 @@ func (c *Client) Create(path common.Path) error {
 	start := 0
 	ck_size := 64 << 10
 	for {
-		cs_IP := reply.Address[start]
+		var reply1 common.GetReplicasReply
 		handle := reply.Handle[start]
+		err = common.Call(string(c.master), "Master.chunkLocations", common.GetReplicasArg{Handle: handle}, &reply1)
+		if err != nil {
+			return err
+		}
 		data := k[start*ck_size : int(math.Min(float64((start+1)*ck_size), float64(len(k))))]
-		var r common.CreateAndWriteReply
-		err = common.Call(string(cs_IP), "ChunkServer.RPCCreateAndWrite", common.CreateAndWriteArg{data, handle}, &r)
-
+		i := 0
+		for {
+			var cs_IP common.ServerAddress
+			cs_IP = reply1.Locations[i]
+			var r common.CreateAndWriteReply
+			err = common.Call(string(cs_IP), "ChunkServer.RPCCreateAndWrite", common.CreateAndWriteArg{data, handle}, &r)
+			if err != nil {
+				return err
+			}
+			i++
+			if i == 3 {
+				break
+			}
+		}
 		start++
 		if start == len(reply.Handle) {
 			break
@@ -66,6 +81,7 @@ func (c *Client) Create(path common.Path) error {
 }
 
 // 文件删除
+.. 待修改，传给master什么？master返回什么？
 func (c *Client) Delete(path common.Path) error {
 	var reply common.DeleteFileReply
 	// master RPC 删除文件，给master一个路径，返回error

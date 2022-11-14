@@ -56,7 +56,13 @@ func (cs *ChunkServer) HeartBeat() {
 	if errx != nil {
 		log.Fatal("ChunkServer Listen Error: ", errx)
 	}
-	go r.Accept(l)
+	for {
+		conn, err := l.Accept()
+		if err != nil {
+			log.Fatal("Accept error: ", err)
+		}
+		go rpc.ServeConn(conn)
+	}
 }
 
 func (cs *ChunkServer) main() error {
@@ -94,7 +100,7 @@ func (cs *ChunkServer) StoreMetaData() error {
 ///////////////////////////
 
 // chunkserver提供的readRPC，读chunk的data并且返回
-func (cs *ChunkServer) RPCReadChunk(args common.ReadChunkArg, reply *common.ReadChunkReply) error {
+func (cs *ChunkServer) RPCReadChunk(args *common.ReadChunkArg, reply *common.ReadChunkReply) error {
 	handle := args.Handle
 	_, chunkinfo := cs.chunk[handle]
 	if !chunkinfo {
@@ -112,7 +118,7 @@ func (cs *ChunkServer) RPCReadChunk(args common.ReadChunkArg, reply *common.Read
 }
 
 // chunkserver提供的writeRPC
-func (cs *ChunkServer) RPCWriteChunk(args common.WriteChunkArg, reply *common.WriteChunkReply) error {
+func (cs *ChunkServer) RPCWriteChunk(args *common.WriteChunkArg, reply *common.WriteChunkReply) error {
 	handle := args.Handle
 	_, chunkinfo := cs.chunk[handle]
 	if !chunkinfo {
@@ -129,7 +135,7 @@ func (cs *ChunkServer) RPCWriteChunk(args common.WriteChunkArg, reply *common.Wr
 }
 
 // chunkserver提供的appendRPC
-func (cs *ChunkServer) RPCAppendChunk(args common.AppendChunkArg, reply *common.AppendChunkReply) error {
+func (cs *ChunkServer) RPCAppendChunk(args *common.AppendChunkArg, reply *common.AppendChunkReply) error {
 	data := args.Data
 	handle := args.Handle
 
@@ -164,7 +170,7 @@ func (cs *ChunkServer) RPCAppendChunk(args common.AppendChunkArg, reply *common.
 
 // chunkserver提供的创建一个新chunkRPC，给定了chunk handle
 // 创建文件时使用，传入文件路径和偏移量
-func (cs *ChunkServer) RPCCreateChunk(args common.CreateChunkArg, reply *common.CreateChunkReply) error {
+func (cs *ChunkServer) RPCCreateChunk(args *common.CreateChunkArg, reply *common.CreateChunkReply) error {
 	fmt.Println("Chunk Server : ", cs.Address, " Create chunk ", args.Handle)
 
 	cs.chunk[args.Handle] = &chunkInfo{
@@ -179,8 +185,8 @@ func (cs *ChunkServer) RPCCreateChunk(args common.CreateChunkArg, reply *common.
 	return nil
 }
 
-// 文件创建部分函数，创建chunk并且写
-func (cs *ChunkServer) RPCCreateAndWrite(args common.CreateAndWriteArg, reply *common.CreateAndWriteReply) error {
+// 文件创建部分函数，待完成
+func (cs *ChunkServer) RPCCreateAndWrite(args *common.CreateAndWriteArg, reply *common.CreateAndWriteReply) error {
 	data, handle := args.Data, args.Handle
 	log.Println("Chunk Server : ", cs.Address, " Create and write chunk ", handle)
 
@@ -201,10 +207,10 @@ func (cs *ChunkServer) RPCCreateAndWrite(args common.CreateAndWriteArg, reply *c
 }
 
 // 删除chunk，传入chunkhandle
-func (cs *ChunkServer) RPCDeleteChunk(handle common.ChunkHandle) error {
-	delete(cs.chunk, handle)
+func (cs *ChunkServer) RPCDeleteChunk(args *common.DeleteChunkArgs, reply *common.DeleteChunkReply) error {
+	delete(cs.chunk, args.Handle)
 
-	filename := path.Join(cs.rootDir, fmt.Sprintf("chunk%v.txt", handle))
+	filename := path.Join(cs.rootDir, fmt.Sprintf("chunk%v.txt", args.Handle))
 	err := os.Remove(filename)
 	return err
 }

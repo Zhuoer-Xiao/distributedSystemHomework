@@ -109,4 +109,10 @@ type CreateAndWriteArg struct {
 	Handle ChunkHandle
 }
 
-type CreateAndWriteReply struct {}
+type DeleteChunkArgs struct {
+	Handle ChunkHandle
+}
+
+type DeleteChunkReply struct{}
+
+type CreateAndWriteReply struct{}
